@@ -76,13 +76,15 @@ int main( int argc, const char* argv[] )
     cout<< "This is Arturo's and Mario-sama's main" <<endl;
     Parking* parking = new Parking();
     Command* commandInterpreter = new Command();
+    command_t command;
 
-#pragma omp parallel sections
+#pragma omp parallel sections num_threads(20)
 {
-#pragma omp section num_threads(20)
+    #pragma omp section
+        {
     carsOnVector.push_back(new Car(omp_get_thread_num() , parking));
 
-    command_t command;
+
     command.args = new std::vector<char*>();
 
     while(!exit){
@@ -98,7 +100,12 @@ int main( int argc, const char* argv[] )
                 resume(carsOnVector);
                 break;
             case command_e::ADD_CARS:
-#pragma omp section num_threads(20)
+                break;
+        }
+    }
+        }
+    #pragma omp section
+        {
                 carsOnVector.push_back(new Car(omp_get_thread_num() , parking));
                 break;
             case command_e::SHOW_STATE:
@@ -114,7 +121,8 @@ int main( int argc, const char* argv[] )
                 std::cout << "Command not found" << std::endl;
                 break;
         }
-    }
+
+
 
     for(Car* car : carsOnVector)
     {
@@ -125,3 +133,4 @@ int main( int argc, const char* argv[] )
 }
     return 0;
 }
+

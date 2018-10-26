@@ -1,5 +1,5 @@
 #include "car.h"
-
+#include <omp.h>
 using namespace std::this_thread; // sleep_for, sleep_until
 using namespace std::chrono; // nanoseconds, system_clock, seconds
 

@@ -1,11 +1,11 @@
 #comment
 CC=mpiCC
 #CFLAGS=-DDEBUG -O0123
-CFLAGS=-g -DDEBUG
+CFLAGS=-g -DDEBUG -fopenmp
 LDLIBS=
 INCLUDE=-I. -I./include
 EXEC=prueba
-OBJS=car.o parking.o command.o
+OBJS=car.o parking.o command.o main.o
 
 all: $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDE) $(LDLIBS) $(OBJS) main.cpp -o $(EXEC)
