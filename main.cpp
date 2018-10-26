@@ -2,53 +2,126 @@
 #include <iostream>
 #include <stdlib.h>
 #include <omp.h>
-#include <chrono>//system_clock
+#include <vector>
 #include <thread>//sleep until
 #include "parking.h"
 #include "car.h"
-using namespace std::this_thread; // sleep_for, sleep_until
-using namespace std::chrono; // nanoseconds, system_clock, seconds
+#include "command.h"
+
+
 using namespace std;
-int getRandomTime(){
+
+int getRandomTime(){//WHAT IZ THIZ?! NANI!!
     int randNum = rand()%(3-0 + 1) + 0;
 
     return randNum;
 }
 
-void car(Parking parking){
-    int state=freed;
-    int time;
-    while(true){
-        case state:
-            if(state==waiting){
-                time=getRandomTime();
-                sleep_until(system_clock::now() + seconds(time));
-            }
-        case waiting:
-            //lock()????
-            //hacer funcion para obtener y disminuir plazas
-            if(parking.freePlaces>0){
-                parking.freePlaces--;
-                state=parked;
-
-            }
-            //unlock()
-            if(state==waiting)
-                //sleep()
-        case parked:
-                time=getRandomTime();
-                sleep_until(system_clock::now() + seconds(time));
-
+void showState(std::vector<Car*> carsOnVector, Parking* parking)
+{
+    std::cout << "-----ESTADO DE PLAZAS-----------------------------------" << std::endl;
+    int numPlace = 1;
+    for(auto place : parking->getPlaces())
+    {
+        std::cout << "Plaza " << numPlace << ": ";
+        if(place == -1)
+        {
+            std::cout << "LIBRE" << std::endl;
+        }
+        else
+        {
+            std::cout << place << std::endl;
+        }
+        numPlace++;
+    }
+    std::cout << "-----COCHES EN ESPERA-----------------------------------" << std::endl;
+    for(Car* car : carsOnVector)
+    {
+        if(car->getState() == waiting)
+        {
+            std:: cout << car->getThreadId() << std:: endl;
+        }
+    }
+    std::cout << "-----COCHES EN CARRETERA--------------------------------" << std::endl;
+    for(Car* car : carsOnVector)
+    {
+        if(car->getState() == freed)
+        {
+            std:: cout << car->getThreadId() << std:: endl;
+        }
     }
 }
+
+void pause(std::vector<Car*> carsOnVector)
+{
+    for(Car* car : carsOnVector)
+    {
+        car->setPause(true);
+    }
+}
+
+void resume(std::vector<Car*> carsOnVector)
+{
+    for(Car* car : carsOnVector)
+    {
+        car->setPause(false);
+    }
+}
+
 int main( int argc, const char* argv[] )
 {
-
-
+    srand(time(NULL));
+    bool exit = false;
+    std::vector<Car*> carsOnVector;
     cout<< "This is Arturo's and Mario-sama's main" <<endl;
-    Parking* parking=new Parking();
-    coche(parking);
-    cout<<parking->anyFree()<<endl;
+    Parking* parking = new Parking();
+    Command* commandInterpreter = new Command();
 
+#pragma omp parallel sections
+{
+#pragma omp section num_threads(20)
+    carsOnVector.push_back(new Car(omp_get_thread_num() , parking));
+
+    command_t command;
+    command.args = new std::vector<char*>();
+
+    while(!exit){
+        command.clean();
+        std::cout << "$: ";
+        commandInterpreter->readCommand(&command);
+        switch(command.type)
+        {
+            case command_e::PAUSE:
+                pause(carsOnVector);
+                break;
+            case command_e::RESUME:
+                resume(carsOnVector);
+                break;
+            case command_e::ADD_CARS:
+#pragma omp section num_threads(20)
+                carsOnVector.push_back(new Car(omp_get_thread_num() , parking));
+                break;
+            case command_e::SHOW_STATE:
+                showState(carsOnVector, parking);
+                break;
+            case command_e::END:
+                exit = true;
+                break;
+            case command_e::NO_COMMAND:
+                std::cout << "Command not found" << std::endl;
+                break;
+            default:
+                std::cout << "Command not found" << std::endl;
+                break;
+        }
+    }
+
+    for(Car* car : carsOnVector)
+    {
+        car->stopEngine();
+        delete(car);
+    }
+    delete(parking);
+}
     return 0;
 }
