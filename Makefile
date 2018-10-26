@@ -5,7 +5,7 @@ CFLAGS=-g -DDEBUG -fopenmp
 LDLIBS=
 INCLUDE=-I. -I./include
 EXEC=prueba
-OBJS=car.o parking.o command.o main.o
+OBJS=car.o parking.o command.o
 
 all: $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDE) $(LDLIBS) $(OBJS) main.cpp -o $(EXEC)

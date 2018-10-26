@@ -9,7 +9,7 @@ Car::Car(int threadId, Parking* parking)
     this->threadId=threadId;
     this->state=freed;
     this->parking=parking;
-    startEngine();
+
 }
 
 void Car::standBy()
@@ -19,6 +19,7 @@ void Car::standBy()
 void Car::startEngine(){
     int time;
     this->engine = true;
+
     while(engine)
     {
         while(pause) {;}
