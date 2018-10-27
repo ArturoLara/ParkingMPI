@@ -6,6 +6,7 @@ Parking::Parking()
 {
 
     this->numPlaces=PLACES;
+    countRegisteredCars = 0;
     omp_init_lock(&locker);
 
     for(int i=0; i< PLACES ;i++){
@@ -27,15 +28,6 @@ int  Parking::ocuppyAPlace(int threadId){
         if(freePlace != -1)
         {
             places[freePlace] = threadId;
-            //std::cout << "APARCAO. AUREEEEEEEEELIO   =  " <<threadId<< std::endl;
-          /*  if(threadId%2==0){
-                  time_t     now;
-                  time(&now);
-                  struct tm  tstruct;
-
-                      tstruct = *localtime(&now);
-                std::cout<<threadId<<" "<<tstruct.tm_sec<<std::endl;
-            }*/
             return 0;
         }
         else
@@ -56,15 +48,6 @@ int Parking::leaveAPlace(int threadId){
     if(idPlace != -1)
     {
         places[idPlace] = -1;
-        //std::cout<<"Aurelio se va :'(  = "<<threadId<<std::endl;
-        /*if(threadId%2==0){
-             time_t     now;
-             time(&now);
-             struct tm  tstruct;
-
-                 tstruct = *localtime(&now);
-            std::cout<<threadId<<" "<<tstruct.tm_sec<<std::endl;
-        }*/
         return 0;
     }
     else
@@ -97,4 +80,8 @@ std::vector<int> Parking::getPlaces()
     return places;
 }
 
+int Parking::registerCar()
+{
+    return countRegisteredCars++;
+}
 

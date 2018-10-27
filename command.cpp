@@ -6,7 +6,6 @@ void Command::readCommand(command_t* aCommand){
     char * line= new char [1024];
     char spacer[3]=" \n";
     char* token=NULL;
-
     fgets(line, 1023, stdin);
     token=strtok(line, spacer);
     aCommand->type=getTypeOfCommand(token);

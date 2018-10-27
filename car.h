@@ -22,7 +22,7 @@ private:
     bool pause;
     bool engine;
 public:
-    Car(int threadId, Parking* parking);
+    Car(Parking* parking);
     void standBy();
     void startEngine();
     void park();

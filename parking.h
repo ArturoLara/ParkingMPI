@@ -10,6 +10,7 @@ class Parking
 {
 private:
     int numPlaces;
+    int countRegisteredCars;
     std::vector<int> places;
 
     //function to get the id of a free place
@@ -28,6 +29,8 @@ public:
     int leaveAPlace(int threadId);
     //function to get the palces
     std::vector<int> getPlaces();
+
+    int registerCar();
 
 
 };

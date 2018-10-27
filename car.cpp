@@ -3,43 +3,41 @@
 using namespace std::this_thread; // sleep_for, sleep_until
 using namespace std::chrono; // nanoseconds, system_clock, seconds
 
-Car::Car(int threadId, Parking* parking)
+Car::Car(Parking* parking)
 {
-
-    this->threadId=threadId;
-    this->state=freed;
-    this->parking=parking;
-
+    this->threadId = parking->registerCar();
+    this->state = freed;
+    this->parking = parking;
 }
 
 void Car::standBy()
 {
-    this->state=waiting;
+    this->state = waiting;
 }
 void Car::startEngine(){
+    std::cout << "brummm brumbrumm " << threadId << std::endl;
     int time;
     this->engine = true;
-
     while(engine)
     {
         while(pause) {;}
-        switch(this->state)
+        if(state == freed)
         {
-        case freed:
             time=rand()%4;
             std::this_thread::sleep_until(system_clock::now() + seconds(time));
             while(pause) {;}
             park();
-            break;
-        case waiting:
+        }
+        else if(state == waiting)
+        {
             park();
-            break;
-        case parked:
+        }
+        else if(state == parked)
+        {
             time=rand()%4;
             std::this_thread::sleep_until(system_clock::now() + seconds(time));
             while(pause) {;}
             goToRoad();
-            break;
         }
     }
 }
