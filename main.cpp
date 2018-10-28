@@ -8,7 +8,7 @@
 #include "car.h"
 #include "command.h"
 
-#define NUM_THREADS 20
+#define NUM_CARS 20
 using namespace std;
 
 void showState(std::vector<Car*> carsOnVector, Parking* parking)
@@ -70,81 +70,91 @@ void stop(std::vector<Car*> carsOnVector)
     }
 }
 
-Car* addCar(Parking* parking)
+Car* addCar(Parking* parking, std::vector<Car*>* carsOnVector)
 {
     Car* tempCar;
 
     tempCar = new Car(parking);
-    tempCar->startEngine();
+    carsOnVector->push_back(tempCar);
 
     return tempCar;
 }
 
-void addCar(std::vector<Car*>* carsOnVector, Parking* parking)
+bool menu(Command* commandInterpreter, command_t* command, std::vector<Car*>* carsOnVector, Parking* parking)
 {
-    Car* tempCar = new Car(parking);
-    carsOnVector->push_back(tempCar);
-    tempCar->startEngine();
+    bool exit = false;
+    Car* car;
+
+    while(!exit){
+        command->clean();
+        std::cout << "$: ";
+        commandInterpreter->readCommand(command);
+        switch(command->type)
+        {
+            case PAUSE:
+                pause(*carsOnVector);
+                break;
+            case RESUME:
+                resume(*carsOnVector);
+                break;
+            case ADD_CARS:
+                car = addCar(parking, carsOnVector);
+                #pragma omp parallel sections num_threads(2)
+                {
+                    #pragma omp section
+                    car->startEngine();
+                    #pragma omp section
+                    exit = menu(commandInterpreter, command, carsOnVector, parking);
+                }
+                break;
+            case SHOW_STATE:
+                showState(*carsOnVector, parking);
+                break;
+            case END:
+                stop(*carsOnVector);
+                parking->close();
+                exit = true;
+                break;
+            case NO_COMMAND:
+                std::cout << "Command not found" << std::endl;
+                break;
+            default:
+                std::cout << "Command not found" << std::endl;
+                break;
+        }
+    }
+    return exit;
 }
 
 int main()
 {
         omp_set_nested(1);
+        omp_set_dynamic(0);
         srand(time(NULL));
 
         std::vector<Car*> carsOnVector;
         Parking* parking = new Parking();
         Car* tempCar;
 
-#pragma omp parallel shared(parking, carsOnVector) firstprivate(tempCar) num_threads(2)
+#pragma omp parallel shared(parking, carsOnVector) firstprivate(tempCar) num_threads(NUM_CARS+2)
     {
-        if(omp_get_thread_num() > 0)
+        if(omp_get_thread_num() > 1)
         {
-#pragma omp for nowait
-            for(int i = 0; i < 20; i++)
-            {
-                addCar(&carsOnVector, parking);
-            }
+            tempCar = new Car(parking);
+            carsOnVector.push_back(tempCar);
+            tempCar->startEngine();
+        }
+        else if(omp_get_thread_num() == 1)
+        {
+            parking->ORASystem();
         }
         else
         {
-            std::cout << omp_get_num_threads() << " despues" << std::endl;
-            std::cout << omp_get_thread_num() << std::endl;
-            bool exit = false;
             Command* commandInterpreter = new Command();
             command_t command;
             command.args = new std::vector<char*>();
 
-            while(!exit){
-                command.clean();
-                std::cout << "$: ";
-                commandInterpreter->readCommand(&command);
-                switch(command.type)
-                {
-                    case PAUSE:
-                        pause(carsOnVector);
-                        break;
-                    case RESUME:
-                        resume(carsOnVector);
-                        break;
-                    case ADD_CARS:
-                        carsOnVector.push_back(addCar(parking));
-                        break;
-                    case SHOW_STATE:
-                        showState(carsOnVector, parking);
-                        break;
-                    case END:
-                        stop(carsOnVector);
-                        exit = true;
-                        break;
-                    case NO_COMMAND:
-                        std::cout << "Command not found" << std::endl;
-                        break;
-                    default:
-                        std::cout << "Command not found" << std::endl;
-                        break;
-                }
-            }
+            menu(commandInterpreter, &command, &carsOnVector, parking);
         }
 #pragma omp barrier
 #pragma omp single
@@ -155,10 +165,7 @@ int main()
             }
             delete(parking);
         }
-        std::cout << "I'm free mother fucker! thread " << omp_get_thread_num() << " OUT" << std::endl;
     }
-
-
-    return 0;
+        return 0;
 }
 

@@ -1,10 +1,11 @@
-#ifndef CAR_H
-#define CAR_H
+#pragma once
 
 #include "parking.h"
 #include <omp.h>
 #include <chrono> //system_clock
 #include <thread> //sleep until
+
+class Parking;
 
 enum State{
     freed=0,
@@ -21,6 +22,7 @@ private:
     Parking* parking;
     bool pause;
     bool engine;
+    bool ticket;
 public:
     Car(Parking* parking);
     void standBy();
@@ -31,6 +33,7 @@ public:
     State getState();
     int getThreadId();
     void setPause(bool pause);
+    void setTicket();
+    bool getTicket();
 };
 
-#endif // CAR_H

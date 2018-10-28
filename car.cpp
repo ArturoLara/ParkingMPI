@@ -14,8 +14,14 @@ void Car::standBy()
 {
     this->state = waiting;
 }
+
+void Car::setTicket()
+{
+    ticket = true;
+}
+
+
 void Car::startEngine(){
-    std::cout << "brummm brumbrumm " << threadId << std::endl;
     int time;
     this->engine = true;
     while(engine)
@@ -55,8 +61,9 @@ void Car::park(){
     }
 }
 void Car::goToRoad(){
+    int sucess;
     omp_set_lock(&(parking->locker));
-    int sucess = parking->leaveAPlace(threadId);
+    sucess = parking->leaveAPlace(threadId);
     omp_unset_lock(&(parking->locker));
     if(sucess == 0)
     {

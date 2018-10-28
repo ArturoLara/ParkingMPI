@@ -1,17 +1,25 @@
-#ifndef PARKING_H
-#define PARKING_H
 
 #include <omp.h>
 #include <vector>
 #include <iostream>
+#include <chrono>
+#include <thread>
+#pragma once
 
+#include "car.h"
+
+class Car;
 //the semafor class
+using namespace std::chrono;
+
 class Parking
 {
 private:
     int numPlaces;
     int countRegisteredCars;
+    bool closeParking;
     std::vector<int> places;
+    std::vector<time_t> joinTime;
 
     //function to get the id of a free place
     int getFreePlace();
@@ -32,7 +40,10 @@ public:
 
     int registerCar();
 
+    void close();
+
+    void ORASystem();
+
 
 };
 
-#endif // PARKING_H
