@@ -1,3 +1,7 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
+
 #include "car.h"
 #include <omp.h>
 using namespace std::this_thread; // sleep_for, sleep_until

@@ -1,3 +1,7 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
+
 #pragma once
 
 #include "parking.h"

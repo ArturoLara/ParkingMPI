@@ -1,3 +1,7 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
+
 #include "command.h"
 
 Command::Command() { }

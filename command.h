@@ -1,3 +1,7 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
+
 #ifndef COMMAND_H
 #define COMMAND_H
 

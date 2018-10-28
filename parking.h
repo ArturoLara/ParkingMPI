@@ -1,3 +1,6 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
 
 #include <omp.h>
 #include <vector>

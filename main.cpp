@@ -1,3 +1,7 @@
+/*
+ * Authors: Mario Cavero y Arturo Lara
+*/
+
 #include <stdio.h>
 #include <iostream>
 #include <stdlib.h>
