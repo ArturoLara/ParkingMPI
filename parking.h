@@ -18,6 +18,7 @@ private:
     int numPlaces;
     int countRegisteredCars;
     bool closeParking;
+    bool pause;
     std::vector<int> places;
     std::vector<time_t> joinTime;
 
@@ -44,6 +45,9 @@ public:
 
     void ORASystem();
 
+    void setPause(bool state);
+
+    bool getPause();
 
 };
 

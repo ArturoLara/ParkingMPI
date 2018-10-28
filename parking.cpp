@@ -10,6 +10,7 @@ Parking::Parking()
     this->numPlaces=PLACES;
     countRegisteredCars = 0;
     closeParking = false;
+    pause = false;
     omp_init_lock(&locker);
 
     for(int i=0; i< PLACES ;i++){
@@ -27,32 +28,42 @@ void Parking::ORASystem()
 {
     while(!closeParking)
     {
-        std::cout << "inicio de ronda ORA" << std::endl;
         std::this_thread::sleep_until(system_clock::now() + seconds(ORA_TIME));
+        while(pause){ ; }
         for(int i = 0; i < PLACES; i++)
         {
             if(places[i] != -1)
             {
-                std::cout << "ORA Inform: " << system_clock::to_time_t(system_clock::now()) - joinTime[i] << std::endl;
+                int carID = places[i];
                 if((system_clock::to_time_t(system_clock::now()) - joinTime[i]) >= MAX_PARKING_TIME)
                 {
-
                     omp_set_lock(&(locker));
-                    int sucess = leaveAPlace(places[i]);
+                    int sucess = leaveAPlace(carID);
                     omp_unset_lock(&(locker));
                     if(sucess == 0)
                     {
-                        std::cout << "El ORA ha expulsado al coche " << places[i] << std::endl;
+                        std::cout << "\nEl ORA ha expulsado al coche " << carID;
                     }
                 }
             }
         }
+        std::cout << "\n$: ";
     }
 }
 
 void Parking::close()
 {
     closeParking = true;
+}
+
+void Parking::setPause(bool state)
+{
+    pause = state;
+}
+
+bool Parking::getPause()
+{
+    return pause;
 }
 
 int  Parking::ocuppyAPlace(int threadId){
@@ -88,7 +99,6 @@ int Parking::leaveAPlace(int threadId){
     }
     else
     {
-        std::cout << "ERROR: async threads, is not parked" << std::endl;
         return -1;
     }
 }

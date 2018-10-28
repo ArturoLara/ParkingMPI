@@ -61,14 +61,10 @@ void Car::park(){
     }
 }
 void Car::goToRoad(){
-    int sucess;
     omp_set_lock(&(parking->locker));
-    sucess = parking->leaveAPlace(threadId);
+    parking->leaveAPlace(threadId);
     omp_unset_lock(&(parking->locker));
-    if(sucess == 0)
-    {
-        state = freed;
-    }
+    state = freed;
 }
 
 State Car::getState()

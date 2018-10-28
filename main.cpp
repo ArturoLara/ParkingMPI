@@ -46,16 +46,18 @@ void showState(std::vector<Car*> carsOnVector, Parking* parking)
     }
 }
 
-void pause(std::vector<Car*> carsOnVector)
+void pause(std::vector<Car*> carsOnVector, Parking* parking)
 {
+    parking->setPause(true);
     for(Car* car : carsOnVector)
     {
         car->setPause(true);
     }
 }
 
-void resume(std::vector<Car*> carsOnVector)
+void resume(std::vector<Car*> carsOnVector, Parking* parking)
 {
+    parking->setPause(false);
     for(Car* car : carsOnVector)
     {
         car->setPause(false);
@@ -92,10 +94,10 @@ bool menu(Command* commandInterpreter, command_t* command, std::vector<Car*>* ca
         switch(command->type)
         {
             case PAUSE:
-                pause(*carsOnVector);
+                pause(*carsOnVector, parking);
                 break;
             case RESUME:
-                resume(*carsOnVector);
+                resume(*carsOnVector, parking);
                 break;
             case ADD_CARS:
                 car = addCar(parking, carsOnVector);
