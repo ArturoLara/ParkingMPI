@@ -69,7 +69,6 @@ void registerNewCar(std::vector<int>* onRoad, std::vector<MPI_Comm*>* cars)
     MPI_Comm* commCar = new MPI_Comm[1];
 
     MPI_Comm_spawn("car", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, commCar, MPI_ERRCODES_IGNORE);
-    MPI_Send(&threadID, 1, MPI_INT, 0, 0, *commCar);
     cars->push_back(commCar);
     onRoad->push_back(threadID);
 }
@@ -79,10 +78,9 @@ void  ocuppyAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>*
 
     if((*numPlaces)>0)
     {
-        std::cout << "ocuppy: " << threadId << std::endl;
         (*numPlaces)--;
         int freePlace = getFreePlace(places);
-        int unlockMsg = 1;
+        int unlockMsg = 2;
         if(freePlace != -1)
         {
             joinTime[freePlace] = system_clock::to_time_t(system_clock::now());
@@ -97,14 +95,12 @@ void  ocuppyAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>*
     }
     else
     {
-        std::cout << "wait: " << threadId << std::endl;
         onRoad->erase(std::remove(onRoad->begin(), onRoad->end(), threadId), onRoad->end());
         waitting->push_back(threadId);
     }
 }
 void leaveAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
 {
-    std::cout << "leave: " << threadId << std::endl;
     int idPlace = getPlaceOfThread(places, threadId);
     if(idPlace != -1)
     {
@@ -133,14 +129,37 @@ void leaveAPlaceWithPosition(int placeID, std::vector<MPI_Comm*>* cars, std::vec
     }
 }
 
+void pause(std::vector<MPI_Comm*> *cars, MPI_Comm ora, bool *pause)
+{
+    int function = 0;
+    *pause = !(*pause);
+    for(int i = 0; i < cars->size(); i++)
+    {
+        MPI_Send(&function, 1, MPI_INT, 0, 0, *((*cars)[i]));
+    }
+    //MPI_Send(&function, 1, MPI_INT, 0, 0, ora);
+}
+
+void stop(MPI_Comm ora, std::vector<MPI_Comm*>* cars, bool* closeParking)
+{
+    int function = 2;
+    *closeParking = true;
+    for(int i = 0; i < cars->size(); i++)
+    {
+        MPI_Send(&function, 1, MPI_INT, 0, 0, *((*cars)[i]));
+    }
+    //MPI_Send(&function, 1, MPI_INT, 0, 0, ora);
+
+}
+
 int main(int argc, char** argv)
 {
     int numPlaces = PLACES;
     int func = -1;
-    int nullValue = 0;
     int msgSize=0;
     int * listOfCarsToOut;
     bool closeParking = false;
+    bool pauseFlag = false;
 
     MPI_Init(&argc, &argv);
     MPI_Status status;
@@ -153,9 +172,9 @@ int main(int argc, char** argv)
     MPI_Comm terminal;
     MPI_Comm ora;
 
-    MPI_Comm* commCar = new MPI_Comm[1];
     for(int i = 0; i < NUM_CARS; i++)
     {
+        MPI_Comm* commCar = new MPI_Comm[1];
         MPI_Comm_spawn("car", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, commCar, MPI_ERRCODES_IGNORE);
         cars.push_back(commCar);
         onRoad.push_back(i);
@@ -169,11 +188,11 @@ int main(int argc, char** argv)
 
     MPI_Comm_spawn("terminal", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &terminal, MPI_ERRCODES_IGNORE);
 
-    //MPI_Comm_spawn("ora", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &ora, MPI_ERRCODES_IGNORE);
-    //MPI_Send(&PLACES, 1, MPI_INT, 0, 0, ora);
+    MPI_Comm_spawn("ora", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &ora, MPI_ERRCODES_IGNORE);
+    MPI_Send(&PLACES, 1, MPI_INT, 0, 0, ora);
     while(!closeParking)
     {
-        int flag = false;
+        int flag = 0;
         MPI_Iprobe(0, 0, terminal, &flag, &status);
         if(flag)
         {
@@ -181,7 +200,7 @@ int main(int argc, char** argv)
             MPI_Recv(&func, 1, MPI_INT, 0, 0, terminal, &status);
             switch (func) {
             case 0:
-                MPI_Recv(&nullValue, 1, MPI_INT, 0, 0, terminal, &status);
+                pause(&cars, ora, &pauseFlag);
                 break;
             case 1:
                 registerNewCar(&onRoad, &cars);
@@ -189,58 +208,66 @@ int main(int argc, char** argv)
             case 2:
                 showState(&places, &onRoad, &waitting);
                 break;
+            case 3:
+                stop(ora, &cars, &closeParking);
+                break;
             default:
                 break;
             }
             func = -1;
-            flag = false;
+            flag = 0;
         }
-
-        //MPI_Iprobe(0, 0, ora, &flag, &status);
-        if(flag)
+        if(!pauseFlag)
         {
-            std::cout << "mensaje entrante: ora" << std::endl;
-            msgSize=0;
-
-            MPI_Get_count(&status, MPI_CHAR, &msgSize);
-            listOfCarsToOut = new int[msgSize];
-            MPI_Recv(listOfCarsToOut, msgSize, MPI_CHAR, 0, 0, ora, &status);
-
-            for(int i = 0; i < msgSize; i++)
-            {
-                leaveAPlaceWithPosition(listOfCarsToOut[i], &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
-            }
-            //MPI_Send((void*)joinTime, sizeof(time_t)*PLACES, MPI_CHAR, 0, 0, ora);
-
-            delete listOfCarsToOut;
-            flag = false;
-        }
-        int msgFound = -1;
-        for(int i = 0; i < cars.size() && (msgFound == -1); i++)
-        {
-            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[i]), &flag, &status);
+            MPI_Iprobe(0, 0, ora, &flag, &status);
             if(flag)
-                msgFound=i;
-        }
-        if(msgFound!=-1)
-        {
-            std::cout << "Mensaje Recivido: " << msgFound << std::endl;
-            MPI_Recv(&func, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[msgFound]), &status);
-            switch (func) {
-            case 0:
-                ocuppyAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
-                break;
-            case 1:
-                leaveAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
-                break;
-            default:
-                break;
+            {
+                std::cout << "mensaje entrante: ora" << std::endl;
+                msgSize=0;
+
+                MPI_Get_count(&status, MPI_CHAR, &msgSize);
+                std::cout << msgSize << std::endl;
+                if(msgSize > 0)
+                {
+                    listOfCarsToOut = new int[msgSize];
+                    MPI_Recv(listOfCarsToOut, msgSize, MPI_CHAR, 0, 0, ora, &status);
+                    std::cout << "lista recibida" << std::endl;
+                    for(int i = 0; i < msgSize; i++)
+                    {
+                        leaveAPlaceWithPosition(listOfCarsToOut[i], &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+                    }
+                    delete listOfCarsToOut;
+                }
+                flag = 0;
             }
-            func = -1;
-            flag = false;
-            msgFound = -1;
+            MPI_Send((void*)joinTime, sizeof(time_t)*PLACES, MPI_CHAR, 0, 0, ora);
+            int msgFound = -1;
+            for(int i = 0; i < cars.size() && (msgFound == -1); i++)
+            {
+                MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[i]), &flag, &status);
+                if(flag)
+                    msgFound=i;
+            }
+            if(msgFound!=-1)
+            {
+                MPI_Recv(&func, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[msgFound]), &status);
+                switch (func) {
+                case 0:
+                    ocuppyAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+                    break;
+                case 1:
+                    leaveAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+                    break;
+                default:
+                    break;
+                }
+                func = -1;
+                flag = 0;
+                msgFound = -1;
+            }
         }
     }
+    MPI_Finalize();
     return 0;
 }
 

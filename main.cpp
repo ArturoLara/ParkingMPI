@@ -27,7 +27,8 @@ void resume(MPI_Comm parent)
 
 void stop(MPI_Comm parent)
 {
-
+    int command = 3;
+    MPI_Send(&command, 1, MPI_INT, 0, 0, parent);
 }
 
 void addCar(MPI_Comm parent)
@@ -69,7 +70,8 @@ int main(int argc, char** argv)
                 showState(parent);
                 break;
             case END:
-                //stop
+                stop(parent);
+                exit = true;
                 break;
             case NO_COMMAND:
                 std::cout << "Command not found\n";
@@ -79,7 +81,6 @@ int main(int argc, char** argv)
                 break;
         }
     }
-
     delete commandInterpreter;
     delete command.args;
     return 0;

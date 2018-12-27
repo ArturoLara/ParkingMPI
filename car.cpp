@@ -16,23 +16,40 @@ enum State{
 
 };
 
-void park(MPI_Comm parent, State* state)
+void park(bool* engine)
 {
     int function = 0;
+    bool nowait = false;
     MPI_Status status;
+    MPI_Comm parent;
+    MPI_Comm_get_parent(&parent);
+
     MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
-    std::cout << "se ha enviado algo" << std::endl;
-    MPI_Recv(&function, 1, MPI_INT, 0, 0, parent, &status);
-    *state = parked;
+    while(!nowait)
+    {
+        MPI_Recv(&function, 1, MPI_INT, 0, 0, parent, &status);
+        switch (function) {
+        case 0:
+            MPI_Recv(&function, 1, MPI_INT, 0, 0, parent, &status);
+            break;
+        case 1:
+            *engine = false;
+            break;
+        default:
+            nowait = true;
+            break;
+        }
+    }
 
 }
 
-void goToRoad(MPI_Comm parent, State* state)
+void goToRoad()
 {
     int function = 1;
-    std::cout << function << std::endl;
+    MPI_Comm parent;
+    MPI_Comm_get_parent(&parent);
+
     MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
-    *state = freed;
 }
 
 int main(int argc, char **argv)
@@ -53,7 +70,6 @@ int main(int argc, char **argv)
         MPI_Iprobe(0, 0, parent, &flag, &status);
         if(flag)
         {
-            std::cout << "mensaje entrando" << std::endl;
             MPI_Recv(&func, 1, MPI_INT, 0, 0, parent, &status);
             switch (func) {
             case 0:
@@ -75,11 +91,13 @@ int main(int argc, char **argv)
 
             if(state == freed)
             {
-                park(parent, &state);
+                park(&engine);
+                state = parked;
             }
             else if(state == parked)
             {
-                //goToRoad(parent, &state);
+                goToRoad();
+                state = freed;
             }
         }
     }

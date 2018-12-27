@@ -63,8 +63,8 @@ int main(int argc, char** argv)
                     }
                 }
             }
-            carsToLeave.data();
-            MPI_Send((void*)carsToLeave.data(), sizeof(int)*carsToLeave.size(), MPI_CHAR, 0, 0, parent);
+            if(carsToLeave.size() > 0)
+                MPI_Send((void*)carsToLeave.data(), sizeof(int)*carsToLeave.size(), MPI_CHAR, 0, 0, parent);
             MPI_Recv(&carTimes, sizeof(time_t)*numPlaces, MPI_CHAR, 0, 0, parent, &status);
             carsToLeave.clear();
         }
