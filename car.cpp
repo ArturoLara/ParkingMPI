@@ -19,7 +19,10 @@ enum State{
 void park(MPI_Comm parent, State* state)
 {
     int function = 0;
+    std::cout << function << std::endl;
+    MPI_Status status;
     MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
+    MPI_Recv(&function, 1, MPI_INT, 0, 0, parent, &status);
     *state = parked;
 
 }
@@ -27,6 +30,7 @@ void park(MPI_Comm parent, State* state)
 void goToRoad(MPI_Comm parent, State* state)
 {
     int function = 1;
+    std::cout << function << std::endl;
     MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
     *state = freed;
 }
@@ -66,19 +70,16 @@ int main(int argc, char **argv)
         }
         if(engine)
         {
+            time=rand()%4;
+            std::this_thread::sleep_until(system_clock::now() + seconds(time));
+
             if(state == freed)
             {
-                time=rand()%4;
-                std::this_thread::sleep_until(system_clock::now() + seconds(time));
                 park(parent, &state);
-                std::cout << "parked" << std::endl;
             }
             else if(state == parked)
             {
-                time=rand()%4;
-                std::this_thread::sleep_until(system_clock::now() + seconds(time));
-                goToRoad(parent, &state);
-                std::cout << "on road" << std::endl;
+                //goToRoad(parent, &state);
             }
         }
     }

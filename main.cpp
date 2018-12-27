@@ -7,33 +7,33 @@
 #include "/usr/include/mpi/mpi.h"
 #include "command.h"
 
-void showState(MPI_Comm* parent)
+void showState(MPI_Comm parent)
 {
     int command = 2;
-    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
+    MPI_Send(&command, 1, MPI_INT, 0, 0, parent);
 }
 
-void pause(MPI_Comm* parent)
+void pause(MPI_Comm parent)
 {
     int command = 0;
-    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
+    MPI_Send(&command, 1, MPI_INT, 0, 0, parent);
 }
 
-void resume(MPI_Comm* parent)
+void resume(MPI_Comm parent)
 {
     int command = 0;
-    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
+    MPI_Send(&command, 1, MPI_INT, 0, 0, parent);
 }
 
-void stop(MPI_Comm* parent)
+void stop(MPI_Comm parent)
 {
 
 }
 
-void addCar(MPI_Comm* parent)
+void addCar(MPI_Comm parent)
 {
     int command = 1;
-    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
+    MPI_Send(&command, 1, MPI_INT, 0, 0, parent);
 }
 
 int main(int argc, char** argv)
@@ -46,8 +46,8 @@ int main(int argc, char** argv)
 
     srand(time(NULL));
 
-    MPI_Comm* parent;
-    MPI_Comm_get_parent(parent);
+    MPI_Comm parent;
+    MPI_Comm_get_parent(&parent);
 
     while(!exit)
     {

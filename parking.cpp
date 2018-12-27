@@ -76,14 +76,18 @@ void registerNewCar(std::vector<int>* onRoad, std::vector<MPI_Comm*>* cars)
 
 void  ocuppyAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
 {
+
     if((*numPlaces)>0)
     {
+        std::cout << "ocuppy: " << threadId << std::endl;
         (*numPlaces)--;
         int freePlace = getFreePlace(places);
+        int unlockMsg = 1;
         if(freePlace != -1)
         {
             joinTime[freePlace] = system_clock::to_time_t(system_clock::now());
             (*places)[freePlace] = threadId;
+            MPI_Send(&unlockMsg, 1, MPI_INT, 0, 0, *(cars->at(threadId)));
             onRoad->erase(std::remove(onRoad->begin(), onRoad->end(), threadId), onRoad->end());
         }
         else
@@ -93,13 +97,14 @@ void  ocuppyAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>*
     }
     else
     {
+        std::cout << "wait: " << threadId << std::endl;
         onRoad->erase(std::remove(onRoad->begin(), onRoad->end(), threadId), onRoad->end());
         waitting->push_back(threadId);
     }
 }
 void leaveAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
 {
-
+    std::cout << "leave: " << threadId << std::endl;
     int idPlace = getPlaceOfThread(places, threadId);
     if(idPlace != -1)
     {
@@ -153,6 +158,7 @@ int main(int argc, char** argv)
     {
         MPI_Comm_spawn("car", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, commCar, MPI_ERRCODES_IGNORE);
         cars.push_back(commCar);
+        onRoad.push_back(i);
     }
 
     joinTime = new time_t[PLACES];
@@ -161,14 +167,14 @@ int main(int argc, char** argv)
         joinTime[i] = static_cast<time_t>(0);
     }
 
-    //MPI_Comm_spawn("terminal", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &terminal, MPI_ERRCODES_IGNORE);
+    MPI_Comm_spawn("terminal", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &terminal, MPI_ERRCODES_IGNORE);
 
     //MPI_Comm_spawn("ora", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &ora, MPI_ERRCODES_IGNORE);
     //MPI_Send(&PLACES, 1, MPI_INT, 0, 0, ora);
     while(!closeParking)
     {
         int flag = false;
-        //MPI_Iprobe(0, 0, terminal, &flag, &status);
+        MPI_Iprobe(0, 0, terminal, &flag, &status);
         if(flag)
         {
             std::cout << "mensaje entrante: terminal" << std::endl;
@@ -218,7 +224,7 @@ int main(int argc, char** argv)
         }
         if(msgFound!=-1)
         {
-            std::cout << "mensaje entrante: coche -> " << msgFound << std::endl;
+            std::cout << "Mensaje Recivido: " << msgFound << std::endl;
             MPI_Recv(&func, 1, MPI_INT, 0, 0, *(cars[msgFound]), &status);
             switch (func) {
             case 0:
