@@ -2,176 +2,86 @@
  * Authors: Mario Cavero y Arturo Lara
 */
 
-#include <stdio.h>
 #include <iostream>
-#include <stdlib.h>
-#include <omp.h>
 #include <vector>
-#include <thread>//sleep until
-#include "parking.h"
-#include "car.h"
+#include "/usr/include/mpi/mpi.h"
 #include "command.h"
 
-#define NUM_CARS 20
-using namespace std;
-
-void showState(std::vector<Car*> carsOnVector, Parking* parking)
+void showState(MPI_Comm* parent)
 {
-    std::cout << "-----ESTADO DE PLAZAS-----------------------------------" << std::endl;
-    int numPlace = 1;
-    for(auto place : parking->getPlaces())
-    {
-        std::cout << "Plaza " << numPlace << ": ";
-        if(place == -1)
-        {
-            std::cout << "LIBRE" << std::endl;
-        }
-        else
-        {
-            std::cout << place << std::endl;
-        }
-        numPlace++;
-    }
-    std::cout << "-----COCHES EN ESPERA-----------------------------------" << std::endl;
-    for(Car* car : carsOnVector)
-    {
-        if(car->getState() == waiting)
-        {
-            std:: cout << car->getThreadId() << std:: endl;
-        }
-    }
-    std::cout << "-----COCHES EN CARRETERA--------------------------------" << std::endl;
-    for(Car* car : carsOnVector)
-    {
-        if(car->getState() == freed)
-        {
-            std:: cout << car->getThreadId() << std:: endl;
-        }
-    }
+    int command = 2;
+    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
 }
 
-void pause(std::vector<Car*> carsOnVector, Parking* parking)
+void pause(MPI_Comm* parent)
 {
-    parking->setPause(true);
-    for(Car* car : carsOnVector)
-    {
-        car->setPause(true);
-    }
+    int command = 0;
+    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
 }
 
-void resume(std::vector<Car*> carsOnVector, Parking* parking)
+void resume(MPI_Comm* parent)
 {
-    parking->setPause(false);
-    for(Car* car : carsOnVector)
-    {
-        car->setPause(false);
-    }
+    int command = 0;
+    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
 }
 
-void stop(std::vector<Car*> carsOnVector)
+void stop(MPI_Comm* parent)
 {
-    for(Car* car : carsOnVector)
-    {
-        car->stopEngine();
-    }
+
 }
 
-Car* addCar(Parking* parking, std::vector<Car*>* carsOnVector)
+void addCar(MPI_Comm* parent)
 {
-    Car* tempCar;
-
-    tempCar = new Car(parking);
-    carsOnVector->push_back(tempCar);
-
-    return tempCar;
+    int command = 1;
+    MPI_Send(&command, 1, MPI_INT, 0, 0, *parent);
 }
 
-bool menu(Command* commandInterpreter, command_t* command, std::vector<Car*>* carsOnVector, Parking* parking)
+int main(int argc, char** argv)
 {
+    MPI_Init(&argc, &argv);
     bool exit = false;
-    Car* car;
+    Command* commandInterpreter = new Command();
+    command_t command;
+    command.args = new std::vector<char*>();
 
-    while(!exit){
-        command->clean();
-        std::cout << "$: ";
-        commandInterpreter->readCommand(command);
-        switch(command->type)
+    srand(time(NULL));
+
+    MPI_Comm* parent;
+    MPI_Comm_get_parent(parent);
+
+    while(!exit)
+    {
+        command.clean();
+        std::cout << "\n$: ";
+        commandInterpreter->readCommand(&command);
+        switch(command.type)
         {
             case PAUSE:
-                pause(*carsOnVector, parking);
+                pause(parent);
                 break;
             case RESUME:
-                resume(*carsOnVector, parking);
+                resume(parent);
                 break;
             case ADD_CARS:
-                car = addCar(parking, carsOnVector);
-                #pragma omp parallel sections num_threads(2)
-                {
-                    #pragma omp section
-                    car->startEngine();
-                    #pragma omp section
-                    exit = menu(commandInterpreter, command, carsOnVector, parking);
-                }
+                addCar(parent);
                 break;
             case SHOW_STATE:
-                showState(*carsOnVector, parking);
+                showState(parent);
                 break;
             case END:
-                stop(*carsOnVector);
-                parking->close();
-                exit = true;
+                //stop
                 break;
             case NO_COMMAND:
-                std::cout << "Command not found" << std::endl;
+                std::cout << "Command not found\n";
                 break;
             default:
-                std::cout << "Command not found" << std::endl;
+                std::cout << "Command not found\n";
                 break;
         }
     }
-    return exit;
-}
 
-int main()
-{
-        omp_set_nested(1);
-        omp_set_dynamic(0);
-        srand(time(NULL));
-
-        std::vector<Car*> carsOnVector;
-        Parking* parking = new Parking();
-        Car* tempCar;
-
-#pragma omp parallel shared(parking, carsOnVector) firstprivate(tempCar) num_threads(NUM_CARS+2)
-    {
-        if(omp_get_thread_num() > 1)
-        {
-            tempCar = new Car(parking);
-            carsOnVector.push_back(tempCar);
-            tempCar->startEngine();
-        }
-        else if(omp_get_thread_num() == 1)
-        {
-            parking->ORASystem();
-        }
-        else
-        {
-            Command* commandInterpreter = new Command();
-            command_t command;
-            command.args = new std::vector<char*>();
-
-            menu(commandInterpreter, &command, &carsOnVector, parking);
-        }
-#pragma omp barrier
-#pragma omp single
-        {
-            for(Car* car : carsOnVector)
-            {
-                delete(car);
-            }
-            delete(parking);
-        }
-    }
-        return 0;
+    delete commandInterpreter;
+    delete command.args;
+    return 0;
 }
 

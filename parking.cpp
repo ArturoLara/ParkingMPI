@@ -2,136 +2,239 @@
  * Authors: Mario Cavero y Arturo Lara
 */
 
-#include "parking.h"
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#include <chrono>
+#include <thread>
+#include "/usr/include/mpi/mpi.h"
 
-#define PLACES 10
-#define ORA_TIME 5
-#define MAX_PARKING_TIME 2
+const int PLACES = 10;
+const int NUM_CARS = 20;
 
-Parking::Parking()
+using namespace std::chrono;
+
+void showState(std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting)
 {
-
-    this->numPlaces=PLACES;
-    countRegisteredCars = 0;
-    closeParking = false;
-    pause = false;
-    omp_init_lock(&locker);
-
-    for(int i=0; i< PLACES ;i++){
-        places.push_back(-1);
-        joinTime.push_back(static_cast<time_t>(0));
-    }
-}
-
-Parking::~Parking()
-{
-    omp_destroy_lock(&locker);
-}
-
-void Parking::ORASystem()
-{
-    while(!closeParking)
+    std::cout << "-----ESTADO DE PLAZAS-----------------------------------\n";
+    int numPlace = 1;
+    for(int place : *places)
     {
-        std::this_thread::sleep_until(system_clock::now() + seconds(ORA_TIME));
-        while(pause){ ; }
-        for(int i = 0; i < PLACES; i++)
+        std::cout << "Plaza " << numPlace << ": ";
+        if(place == -1)
         {
-            if(places[i] != -1)
-            {
-                int carID = places[i];
-                if((system_clock::to_time_t(system_clock::now()) - joinTime[i]) >= MAX_PARKING_TIME)
-                {
-                    omp_set_lock(&(locker));
-                    int sucess = leaveAPlace(carID);
-                    omp_unset_lock(&(locker));
-                    if(sucess == 0)
-                    {
-                        std::cout << "\nEl ORA ha expulsado al coche " << carID;
-                    }
-                }
-            }
+            std::cout << "LIBRE\n";
         }
-        std::cout << "\n$: ";
+        else
+        {
+            std::cout << place << "\n";
+        }
+        numPlace++;
+    }
+    std::cout << "-----COCHES EN ESPERA-----------------------------------\n";
+    for(int car : *waitting)
+    {
+        std::cout << car << "\n";
+    }
+    std::cout << "-----COCHES EN CARRETERA--------------------------------\n";
+    for(int car : *onRoad)
+    {
+        std::cout << car << "\n";
     }
 }
 
-void Parking::close()
+int getFreePlace(std::vector<int>* places)
 {
-    closeParking = true;
+
+    for(int i=0; i < PLACES; i++){
+        if((*places)[i] == -1)
+            return i;
+    }
+    return -1;
 }
 
-void Parking::setPause(bool state)
+int getPlaceOfThread(std::vector<int>* places, int theadId)
 {
-    pause = state;
+
+    for(int i=0; i < PLACES; i++){
+        if((*places)[i] == theadId)
+            return i;
+    }
+    return -1;
 }
 
-bool Parking::getPause()
+void registerNewCar(std::vector<int>* onRoad, std::vector<MPI_Comm*>* cars)
 {
-    return pause;
+    int threadID = cars->size();
+    MPI_Comm* commCar = new MPI_Comm[1];
+
+    MPI_Comm_spawn("car", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, commCar, MPI_ERRCODES_IGNORE);
+    MPI_Send(&threadID, 1, MPI_INT, 0, 0, *commCar);
+    cars->push_back(commCar);
+    onRoad->push_back(threadID);
 }
 
-int  Parking::ocuppyAPlace(int threadId){
-    if(numPlaces>0)
+void  ocuppyAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
+{
+    if((*numPlaces)>0)
     {
-        numPlaces--;
-        int freePlace = getFreePlace();
+        (*numPlaces)--;
+        int freePlace = getFreePlace(places);
         if(freePlace != -1)
         {
             joinTime[freePlace] = system_clock::to_time_t(system_clock::now());
-            places[freePlace] = threadId;
-            return 0;
+            (*places)[freePlace] = threadId;
+            onRoad->erase(std::remove(onRoad->begin(), onRoad->end(), threadId), onRoad->end());
         }
         else
         {
             std::cout << "ERROR: async threads, park in the same place" << std::endl;
-            return -1;
         }
     }
     else
     {
-        return 1;
+        onRoad->erase(std::remove(onRoad->begin(), onRoad->end(), threadId), onRoad->end());
+        waitting->push_back(threadId);
     }
 }
-int Parking::leaveAPlace(int threadId){
+void leaveAPlace(int threadId, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
+{
 
-    int idPlace = getPlaceOfThread( threadId );
+    int idPlace = getPlaceOfThread(places, threadId);
     if(idPlace != -1)
     {
-        numPlaces++;
-        places[idPlace] = -1;
-        return 0;
+        (*numPlaces)++;
+        (*places)[idPlace] = -1;
+        joinTime[idPlace] = static_cast<time_t>(0);
+        onRoad->push_back(threadId);
+        if(waitting->size() > 0)
+        {
+            ocuppyAPlace(waitting->front(), cars, places, onRoad, waitting, numPlaces, joinTime);
+            waitting->erase(waitting->begin());
+        }
     }
-    else
+}
+
+void leaveAPlaceWithPosition(int placeID, std::vector<MPI_Comm*>* cars, std::vector<int>* places, std::vector<int>* onRoad, std::vector<int>* waitting, int* numPlaces, time_t* joinTime)
+{
+    (*numPlaces)++;
+    (*places)[placeID] = -1;
+    joinTime[placeID] = static_cast<time_t>(0);
+    onRoad->push_back((*places)[placeID]);
+    if(waitting->size() > 0)
     {
-        return -1;
+        ocuppyAPlace(waitting->front(), cars, places, onRoad, waitting, numPlaces, joinTime);
+        waitting->erase(waitting->begin());
     }
 }
 
-int Parking::getFreePlace(){
-
-    for(int i=0; i < PLACES; i++){
-        if(this->places[i] == -1)
-            return i;
-    }
-    return -1;
-}
-
-int Parking::getPlaceOfThread(int theadId){
-
-    for(int i=0; i < PLACES; i++){
-        if(this->places[i] == theadId)
-            return i;
-    }
-    return -1;
-}
-
-std::vector<int> Parking::getPlaces()
+int main(int argc, char** argv)
 {
-    return places;
-}
+    int numPlaces = PLACES;
+    int func = -1;
+    int nullValue = 0;
+    int msgSize=0;
+    int * listOfCarsToOut;
+    bool closeParking = false;
 
-int Parking::registerCar()
-{
-    return countRegisteredCars++;
+    MPI_Init(&argc, &argv);
+    MPI_Status status;
+
+    std::vector<MPI_Comm*> cars;
+    std::vector<int> places;
+    std::vector<int> onRoad;
+    std::vector<int> waitting;
+    time_t* joinTime;
+    MPI_Comm terminal;
+    MPI_Comm ora;
+
+    MPI_Comm* commCar = new MPI_Comm[1];
+    for(int i = 0; i < NUM_CARS; i++)
+    {
+        MPI_Comm_spawn("car", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, commCar, MPI_ERRCODES_IGNORE);
+        cars.push_back(commCar);
+    }
+
+    joinTime = new time_t[PLACES];
+    for(int i = 0; i < PLACES ; i++){
+        places.push_back(-1);
+        joinTime[i] = static_cast<time_t>(0);
+    }
+
+    //MPI_Comm_spawn("terminal", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &terminal, MPI_ERRCODES_IGNORE);
+
+    //MPI_Comm_spawn("ora", MPI_ARGV_NULL, 1, MPI_INFO_NULL, 0, MPI_COMM_SELF, &ora, MPI_ERRCODES_IGNORE);
+    //MPI_Send(&PLACES, 1, MPI_INT, 0, 0, ora);
+    while(!closeParking)
+    {
+        int flag = false;
+        //MPI_Iprobe(0, 0, terminal, &flag, &status);
+        if(flag)
+        {
+            std::cout << "mensaje entrante: terminal" << std::endl;
+            MPI_Recv(&func, 1, MPI_INT, 0, 0, terminal, &status);
+            switch (func) {
+            case 0:
+                MPI_Recv(&nullValue, 1, MPI_INT, 0, 0, terminal, &status);
+                break;
+            case 1:
+                registerNewCar(&onRoad, &cars);
+                break;
+            case 2:
+                showState(&places, &onRoad, &waitting);
+                break;
+            default:
+                break;
+            }
+            func = -1;
+            flag = false;
+        }
+
+        //MPI_Iprobe(0, 0, ora, &flag, &status);
+        if(flag)
+        {
+            std::cout << "mensaje entrante: ora" << std::endl;
+            msgSize=0;
+
+            MPI_Get_count(&status, MPI_CHAR, &msgSize);
+            listOfCarsToOut = new int[msgSize];
+            MPI_Recv(listOfCarsToOut, msgSize, MPI_CHAR, 0, 0, ora, &status);
+
+            for(int i = 0; i < msgSize; i++)
+            {
+                leaveAPlaceWithPosition(listOfCarsToOut[i], &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+            }
+            //MPI_Send((void*)joinTime, sizeof(time_t)*PLACES, MPI_CHAR, 0, 0, ora);
+
+            delete listOfCarsToOut;
+            flag = false;
+        }
+        int msgFound = -1;
+        for(int i = 0; i < cars.size() && (msgFound == -1); i++)
+        {
+            MPI_Iprobe(0, 0, *(cars[i]), &flag, &status);
+            if(flag)
+                msgFound=i;
+        }
+        if(msgFound!=-1)
+        {
+            std::cout << "mensaje entrante: coche -> " << msgFound << std::endl;
+            MPI_Recv(&func, 1, MPI_INT, 0, 0, *(cars[msgFound]), &status);
+            switch (func) {
+            case 0:
+                ocuppyAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+                break;
+            case 1:
+                leaveAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);
+                break;
+            default:
+                break;
+            }
+            func = -1;
+            flag = false;
+            msgFound = -1;
+        }
+    }
+    return 0;
 }
 

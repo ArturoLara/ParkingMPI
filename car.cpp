@@ -2,91 +2,85 @@
  * Authors: Mario Cavero y Arturo Lara
 */
 
-#include "car.h"
-#include <omp.h>
+#include <chrono> //system_clock
+#include <thread> //sleep until
+#include "/usr/include/mpi/mpi.h"
+
 using namespace std::this_thread; // sleep_for, sleep_until
 using namespace std::chrono; // nanoseconds, system_clock, seconds
 
-Car::Car(Parking* parking)
+
+enum State{
+    freed=0,
+    parked=1
+
+};
+
+void park(MPI_Comm parent, State* state)
 {
-    this->threadId = parking->registerCar();
-    this->state = freed;
-    this->parking = parking;
+    int function = 0;
+    MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
+    *state = parked;
+
 }
 
-void Car::standBy()
+void goToRoad(MPI_Comm parent, State* state)
 {
-    this->state = waiting;
+    int function = 1;
+    MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
+    *state = freed;
 }
 
-void Car::setTicket()
+int main(int argc, char **argv)
 {
-    ticket = true;
-}
+    MPI_Init(&argc, &argv);
+    MPI_Comm parent;
+    MPI_Status status;
+    MPI_Comm_get_parent(&parent);
 
+    State state = freed;
+    bool engine = true;
 
-void Car::startEngine(){
     int time;
-    this->engine = true;
+
     while(engine)
     {
-        while(pause) {;}
-        if(state == freed)
+        int flag, func, nullValue;
+        MPI_Iprobe(0, 0, parent, &flag, &status);
+        if(flag)
         {
-            time=rand()%4;
-            std::this_thread::sleep_until(system_clock::now() + seconds(time));
-            while(pause) {;}
-            park();
+            std::cout << "mensaje entrando" << std::endl;
+            MPI_Recv(&func, 1, MPI_INT, 0, 0, parent, &status);
+            switch (func) {
+            case 0:
+                MPI_Recv(&nullValue, 1, MPI_INT, 0, 0, parent, &status);
+                break;
+            case 1:
+                engine = false;
+                break;
+            default:
+                break;
+            }
+            func = -1;
+            flag = false;
         }
-        else if(state == waiting)
+        if(engine)
         {
-            park();
-        }
-        else if(state == parked)
-        {
-            time=rand()%4;
-            std::this_thread::sleep_until(system_clock::now() + seconds(time));
-            while(pause) {;}
-            goToRoad();
+            if(state == freed)
+            {
+                time=rand()%4;
+                std::this_thread::sleep_until(system_clock::now() + seconds(time));
+                park(parent, &state);
+                std::cout << "parked" << std::endl;
+            }
+            else if(state == parked)
+            {
+                time=rand()%4;
+                std::this_thread::sleep_until(system_clock::now() + seconds(time));
+                goToRoad(parent, &state);
+                std::cout << "on road" << std::endl;
+            }
         }
     }
-}
-void Car::park(){
-    omp_set_lock(&(parking->locker));
-    int sucess = parking->ocuppyAPlace(threadId);
-    omp_unset_lock(&(parking->locker));
-    if(sucess == 1)
-    {
-        standBy();
-    }
-    else if( sucess == 0)
-    {
-        state = parked;
-    }
-}
-void Car::goToRoad(){
-    omp_set_lock(&(parking->locker));
-    parking->leaveAPlace(threadId);
-    omp_unset_lock(&(parking->locker));
-    state = freed;
-}
-
-State Car::getState()
-{
-    return state;
-}
-
-int Car::getThreadId()
-{
-    return threadId;
-}
-
-void Car::setPause(bool pause)
-{
-    this->pause = pause;
-}
-
-void Car::stopEngine()
-{
-    engine = false;
+    return 0;
 }
