@@ -218,14 +218,14 @@ int main(int argc, char** argv)
         int msgFound = -1;
         for(int i = 0; i < cars.size() && (msgFound == -1); i++)
         {
-            MPI_Iprobe(0, 0, *(cars[i]), &flag, &status);
+            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[i]), &flag, &status);
             if(flag)
                 msgFound=i;
         }
         if(msgFound!=-1)
         {
             std::cout << "Mensaje Recivido: " << msgFound << std::endl;
-            MPI_Recv(&func, 1, MPI_INT, 0, 0, *(cars[msgFound]), &status);
+            MPI_Recv(&func, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, *(cars[msgFound]), &status);
             switch (func) {
             case 0:
                 ocuppyAPlace(msgFound, &cars, &places, &onRoad, &waitting, &numPlaces, joinTime);

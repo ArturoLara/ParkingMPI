@@ -19,9 +19,9 @@ enum State{
 void park(MPI_Comm parent, State* state)
 {
     int function = 0;
-    std::cout << function << std::endl;
     MPI_Status status;
     MPI_Send(&function, 1, MPI_INT, 0, 0, parent);
+    std::cout << "se ha enviado algo" << std::endl;
     MPI_Recv(&function, 1, MPI_INT, 0, 0, parent, &status);
     *state = parked;
 
