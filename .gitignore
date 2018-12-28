@@ -30,6 +30,11 @@
 *.exe
 *.out
 *.app
+ora
+main
+terminal
+prueba
+car
 
 # C++ objects and libs
 *.slo
