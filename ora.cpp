@@ -32,27 +32,26 @@ int main(int argc, char** argv)
 
     while(!closeParking)
     {
-        int flag, func, nullValue;
-        MPI_Iprobe(0, 0, parent, &flag, &status);
-        if(flag)
-        {
+        int func;
+        bool ready = false;
+
+        std::this_thread::sleep_until(system_clock::now() + seconds(ORA_TIME));
+        MPI_Send(&numPlaces, 1, MPI_INT, 0, 0, parent);
+        MPI_Recv(&func, 1, MPI_INT, 0, 0, parent, &status);
+        switch (func) {
+        case 0:
             MPI_Recv(&func, 1, MPI_INT, 0, 0, parent, &status);
-            switch (func) {
-            case 0:
-                MPI_Recv(&nullValue, 1, MPI_INT, 0, 0, parent, &status);
-                break;
-            case 1:
-                closeParking = true;
-                break;
-            default:
-                break;
-            }
-            func = -1;
-            flag = false;
+            break;
+        case 2:
+            closeParking = false;
+            break;
+        default:
+            ready = true;
+            break;
         }
-        if(!closeParking)
+        if(!closeParking && ready)
         {
-            std::this_thread::sleep_until(system_clock::now() + seconds(ORA_TIME));
+            MPI_Recv(carTimes, sizeof(time_t)*numPlaces, MPI_CHAR, 0, 0, parent, &status);
             for(int i = 0; i < numPlaces; i++)
             {
                 if(carTimes[i] != static_cast<time_t>(0))
@@ -63,10 +62,9 @@ int main(int argc, char** argv)
                     }
                 }
             }
-            if(carsToLeave.size() > 0)
-                MPI_Send((void*)carsToLeave.data(), sizeof(int)*carsToLeave.size(), MPI_CHAR, 0, 0, parent);
-            MPI_Recv(&carTimes, sizeof(time_t)*numPlaces, MPI_CHAR, 0, 0, parent, &status);
+            MPI_Send((void*)carsToLeave.data(), sizeof(int)*carsToLeave.size(), MPI_CHAR, 0, 0, parent);
             carsToLeave.clear();
+            ready = false;
         }
     }
     return 0;

@@ -53,7 +53,7 @@ int main(int argc, char** argv)
     while(!exit)
     {
         command.clean();
-        std::cout << "\n$: ";
+        std::cout << "$: \n";
         commandInterpreter->readCommand(&command);
         switch(command.type)
         {
